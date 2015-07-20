@@ -1,0 +1,221 @@
+//Amazon S3 Examples
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+
+
+/**
+ * Basic stuff. Testing 
+ * @author pmacdowell
+ *
+ */
+public class TEST1 {
+
+	private static String bucketName = "name-of-bucket-goes-here";
+	private static String key = "MyObjectKey1";
+	private static String key2 = "MyObjectKey2";
+	private static String key3 = "MyObjectKey3";
+	private static ObjectMetadata objectMetaData = new ObjectMetadata();
+	
+	public static void main(String[] args) throws Exception {
+		
+		//Create a credentials object and initialize it
+        AWSCredentials credentials = null;
+        try {
+            credentials = new ProfileCredentialsProvider("default").getCredentials();
+        } catch (Exception e) {
+            throw new AmazonClientException(
+                    "Cannot load the credentials from the credential profiles file. " +
+                    "Please make sure that your credentials file is at the correct " +
+                    "location (C:\\Users\\yourName\\.aws\\credentials), and is in valid format.",
+                    e);
+        }
+        
+        //Create an Amazon S3 object and initialize it using the credentials
+        AmazonS3 s3 = new AmazonS3Client(credentials);
+        Region usWest1 = Region.getRegion(Regions.US_WEST_1);
+        s3.setRegion(usWest1);
+
+        //Set metadata
+        Map<String, String> userMetadata = new HashMap<String, String>();
+        userMetadata.put("Pat", "is Awesome");
+        objectMetaData.setUserMetadata(userMetadata);
+
+        //ALL METHODS//
+	        //createTheBucket(s3);
+	        //listAllBuckets(s3);
+	        //putObjectIntoBucket(s3);
+	        //getObjectFromBucket(s3);
+	        //listObjectsFromBucket(s3);
+	        //deleteObjectFromBucket(s3);
+	        //deleteBucket(s3);
+	}
+	
+	//If I were creating a bucket (Not atm)
+	private static void createTheBucket(AmazonS3 s3){
+		s3.createBucket(bucketName);
+		System.out.println("Bucket Created");
+	}
+	
+	//List buckets in my account
+	private static void listAllBuckets(AmazonS3 s3){
+		for(Bucket bucket : s3.listBuckets()){
+			System.out.println(bucket.getName()); //Print out the name here
+		}
+	}
+	
+	//Put into bucket (3 methods)
+	private static void putObjectIntoBucket(AmazonS3 s3) throws IOException{
+		
+		//Making 1 InputStream to be used for all Bucket Inserts.
+		InputStream is = new FileInputStream("C://eula.1028.txt");
+		
+		/**
+		 * @Params bucketName : String, name of the bucket
+		 * @Params key : String, key value (IE key value pair)
+		 * @Params file : File file to insert
+		 * s3.putObject(bucketName, key, file)
+		 */
+		s3.putObject(bucketName, key, createSampleFile());
+		
+				/**
+		 * @Params bucketName : String, name of the bucket
+		 * @Params key : String, key value (IE key value pair)
+		 * @Params input : The input stream containing the data to be uploaded to Amazon S3
+		 * @Params metadata Additional metadata instructing Amazon S3 how to handle the 
+		 * uploaded data (e.g. custom user metadata, hooks for specifying content type, etc.)
+		 * s3.putObject(bucketName, key, input, metadata);
+		 */
+		s3.putObject(bucketName, key, is, objectMetaData);
+		
+		/**
+		 * Constructors on a putObjectRequest:
+		 * 
+		 * 1) PutObjectRequest(java.lang.String bucketName, java.lang.String key, 
+		 * java.io.File file) Constructs a new PutObjectRequest object to upload a file to 
+		 * the specified bucket and key.
+		 * 
+		 * 2) PutObjectRequest(java.lang.String bucketName, java.lang.String key, 
+		 * java.io.InputStream input, ObjectMetadata metadata)
+		 * Constructs a new PutObjectRequest object to upload a stream of data to 
+		 * the specified bucket and key.
+		 * 
+		 * 3) PutObjectRequest(java.lang.String bucketName, java.lang.String key, 
+		 * java.lang.String redirectLocation) (Redirect to new object)
+		 * Constructs a new PutObjectRequest object to perform a redirect for the 
+		 * specified bucket and key.
+		 */
+		PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, key, is, objectMetaData);
+		/**
+		 * @Params putObjectRequest : @link {putObjectRequest}
+		 * s3.putObject(putObjectRequest)
+		 */
+		
+		//s3.putObject(putObjectRequest); //IS limit not specified. 
+		
+		System.out.println("All objects placed");
+	}
+	
+	//Get from the bucket
+	private static void getObjectFromBucket(AmazonS3 s3) throws IOException{
+		
+		S3Object pulled_object = s3.getObject(bucketName, key);
+		System.out.println("Printing out bucket");
+		System.out.println(pulled_object.toString());
+		System.out.println(pulled_object.getObjectMetadata().getContentType());
+
+		//This is pulling from the method below, prints out an InputStream
+		displayTextInputStream(pulled_object.getObjectContent());
+	}
+	
+	//List objects from the bucket
+	private static void listObjectsFromBucket(AmazonS3 s3){
+		
+		ObjectListing objectListing = s3.listObjects(new ListObjectsRequest()
+        .withBucketName(bucketName)
+        .withPrefix("MyObject")); //IE MyObjectKey1
+		
+		//Does not contain any contents or metadata of the object, just a summary
+		for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
+			System.out.println("Printing out All buckets info via loop");
+			System.out.println(objectSummary.getKey());
+		    System.out.println(objectSummary.getSize());
+		    System.out.println(objectSummary.getLastModified());
+		    System.out.println(objectSummary.getBucketName());
+		}
+	}
+	
+	//Delete an object from a bucket
+	private static void deleteObjectFromBucket(AmazonS3 s3){
+		s3.deleteObject(bucketName, key);
+		System.out.println("Item Deleted");
+	}
+	
+	//Delete a bucket
+	private static void deleteBucket(AmazonS3 s3){
+		s3.deleteBucket(bucketName);
+		System.out.println("Bucket " + bucketName + " Deleted");
+	}
+	
+	/**
+     * Creates a temporary file with text data to demonstrate uploading a file
+     * to Amazon S3
+     * @return A newly created temporary file with text data.
+     * @throws IOException
+     */
+    private static File createSampleFile() throws IOException {
+        File file = File.createTempFile("sampleTxtFile", ".txt");
+        file.deleteOnExit();
+
+        Writer writer = new OutputStreamWriter(new FileOutputStream(file));
+        writer.write("abcdefghijklmnopqrstuvwxyz\n");
+        writer.write("01234567890112345678901234\n");
+        writer.write("!@#$%^&*()-=[]{};':',.<>/?\n");
+        writer.write("01234567890112345678901234\n");
+        writer.write("abcdefghijklmnopqrstuvwxyz\n");
+        writer.close();
+
+        return file;
+    }
+    
+    /**
+     * Displays the contents of the specified input stream as text.
+     * @param input The input stream to display as text.
+     * @throws IOException
+     */
+    private static void displayTextInputStream(InputStream input) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+        while (true) {
+            String line = reader.readLine();
+            if (line == null) break;
+            System.out.println("    " + line);
+        }
+        System.out.println();
+    }
+}
